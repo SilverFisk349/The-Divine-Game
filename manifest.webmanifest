@@ -1,0 +1,25 @@
+{
+  "id": "./",
+  "name": "The Divine Game",
+  "short_name": "Divine Game",
+  "description": "A fantasy RPG with automatic combat, kingdom building and permadeath.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111817",
+  "theme_color": "#141b1b",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
