@@ -1162,7 +1162,46 @@ function routeTrail(r){let history=Object.entries(r.routeHistory||{}).filter(([s
 function routeLength(r){return r.length||zones[r.zone].length}
 function lesserCounts(p=state,includeLoot=true){let counts={healing:p.potions||0,mana:0,effect:0};for(let i of [...p.bag,...(includeLoot?(p.run?.loot||[]):[])]){let c=i.consumable,k=lesserCategory(c?.category);if(c?.tier!=='lesser')continue;if(k==='dual'){counts.healing+=i.count||1;counts.mana+=i.count||1}else if(Object.hasOwn(counts,k))counts[k]+=i.count||1}return counts}
 function lesserCountMarkup(p=state){let c=lesserCounts(p),cfg=lesserSettingsFor(p),active=[['healing','HP','HP','Lesser Healing Items'],['mana','MP','MP','Lesser Mana Items'],['effect','Effect','FX','Lesser Effect Items']].filter(([k])=>cfg[k]);return active.length?`<div class="lesser-counts">${active.map(([k,icon,label,title])=>`<span class="lesser-count-${k}" title="${title}">${statIcon(icon)} ${label} <b data-lesser-count="${k}">${c[k]}</b></span>`).join('')}</div>`:''}
-function startRun(i,node){if(!node||!atlasUnlocked(state,i)||state.pendingResult||state.run)return;resetExpeditionVisuals();completeHousing(state);state.hp=maxHP();state.mp=maxMP();state.run={zone:i,length:node.q.length-5,questId:node.q[0],questTitle:node.q[1],questTier:node.tier,replayQuest:!!atlasProgress(state,i).completed[node.q[0]],routeHistory:{},event:null,step:0,walk:0,enemy:null,loot:[],droppedTreasure:[],usedLoot:[],gold:0,wood:0,survivors:0,bonus:0,escapeEncounters:0,fleeRecovery:0,cd:{action:0,attack:0,spark:0,potion:0,enemy:0,flee:0},actionCursor:0,log:['You leave the safety of camp.'],paused:false,flash:0,effects:[],kills:0,earnedXP:0,raresDefeated:0,bossDefeated:false};state.run.log.push('Quest: '+node.q[1]);state.run.travelSchedule=createTravelSchedule(state.run.length,Math.random,state.run.length*(node.tier==='boss'?25:18));state.run.encounterPlan=node.q.slice(5);if(node.tier==='outer'&&node.q[2]==='Gathering'&&Math.random()<.18){state.run.encounterPlan.unshift(i===1?'monster:Wild Rat':i===2?'monster:Bandit':'monster:Forest Wolf');state.run.length=state.run.encounterPlan.length;state.run.travelSchedule=createTravelSchedule(state.run.length,Math.random,state.run.length*18)}let originalTravel=state.run.travelSchedule.reduce((a,b)=>a+b,0),originalLength=state.run.encounterPlan.length;state.run.encounterPlan=addAdventureDiscoveries(state.run.encounterPlan,i);state.run.length=state.run.encounterPlan.length;state.run.travelSchedule=createTravelSchedule(state.run.length,Math.random,Math.max(state.run.length*2,originalTravel+(state.run.length-originalLength)*4));state.phase='adventure';tab='character';save();adventure();window.scrollTo(0,0)}
+
+function adventureDepth(node){
+ if(node.tier==='boss')return 1;
+ let fallback=node.tier==='inner'?.65:.15;
+ if(!Number.isFinite(node.x)||!Number.isFinite(node.y))return fallback;
+ let radius=Math.hypot((node.x-50)/50,(node.y-53)/47);
+ let depth=clamp(1-radius,0,1);
+ return node.tier==='inner'?clamp(depth,.48,.82):clamp(depth,0,.30);
+}
+function depthAdventurePlan(plan,zone,node,random=Math.random){
+ let depth=adventureDepth(node),tier=node.tier,inner=tier==='inner',boss=tier==='boss',deep=inner||boss;
+ // Keep the quest objectives exactly once, in their original order, with the boss last.
+ if(!deep)return addAdventureDiscoveries(plan,zone,random);
+ let extraCount=boss?6+Math.floor(random()*3):2+Math.floor(depth*2+random()*2);
+ let fights=boss?3+Number(random()<.5):1+Number(depth>.60&&random()<.55);
+ let extras=[],used=[];
+ let species=zone===0?['Forest Wolf','Goblin Scout','Goblin Archer','Wild Rat']:zone===1?['Goblin Scout','Goblin Archer','Stone Guardian','Wild Rat']:['Bandit','Goblin Archer','Stone Guardian','Ember Guardian'];
+ if(zone===0&&plan.some(x=>x.endsWith(':Ember Guardian')))species.push('Ember Guardian');
+ if(zone===1&&plan.some(x=>x.endsWith(':Ember Guardian')))species.push('Ember Guardian');
+ for(let j=0;j<fights;j++){
+  let name=species[Math.min(species.length-1,Math.floor(random()*species.length))];
+  extras.push((random()<(boss?.10:.055)?'rare:':'monster:')+name);
+ }
+ for(let j=fights;j<extraCount;j++){let id=rollAdventureDiscovery(zone,used,random);if(id){used.push(id);extras.push('discovery:'+id)}}
+ // Spread discoveries and combat across the route, without changing the objective sequence.
+ for(let j=extras.length-1;j>0;j--){let k=Math.floor(random()*(j+1));[extras[j],extras[k]]=[extras[k],extras[j]]}
+ let out=[],cursor=0;
+ for(let j=0;j<plan.length;j++){
+  let until=Math.ceil((j+1)*extras.length/plan.length);
+  while(cursor<until)out.push(extras[cursor++]);
+  out.push(plan[j]);
+ }
+ return out;
+}
+function depthAdventureTravel(plan,node,random=Math.random){
+ let depth=adventureDepth(node),ticks=node.tier==='boss'?30:node.tier==='inner'?22+Math.round(depth*8):18+Math.round(depth*3);
+ return createTravelSchedule(plan.length,random,plan.length*ticks);
+}
+
+function startRun(i,node){if(!node||!atlasUnlocked(state,i)||state.pendingResult||state.run)return;resetExpeditionVisuals();completeHousing(state);state.hp=maxHP();state.mp=maxMP();state.run={zone:i,length:node.q.length-5,questId:node.q[0],questTitle:node.q[1],questTier:node.tier,replayQuest:!!atlasProgress(state,i).completed[node.q[0]],routeHistory:{},event:null,step:0,walk:0,enemy:null,loot:[],droppedTreasure:[],usedLoot:[],gold:0,wood:0,survivors:0,bonus:0,escapeEncounters:0,fleeRecovery:0,cd:{action:0,attack:0,spark:0,potion:0,enemy:0,flee:0},actionCursor:0,log:['You leave the safety of camp.'],paused:false,flash:0,effects:[],kills:0,earnedXP:0,raresDefeated:0,bossDefeated:false};state.run.log.push('Quest: '+node.q[1]);state.run.travelSchedule=createTravelSchedule(state.run.length,Math.random,state.run.length*(node.tier==='boss'?25:18));state.run.encounterPlan=node.q.slice(5);if(node.tier==='outer'&&node.q[2]==='Gathering'&&Math.random()<.18){state.run.encounterPlan.unshift(i===1?'monster:Wild Rat':i===2?'monster:Bandit':'monster:Forest Wolf');state.run.length=state.run.encounterPlan.length;state.run.travelSchedule=createTravelSchedule(state.run.length,Math.random,state.run.length*18)}state.run.encounterPlan=depthAdventurePlan(state.run.encounterPlan,i,node);state.run.length=state.run.encounterPlan.length;state.run.travelSchedule=depthAdventureTravel(state.run.encounterPlan,node);state.phase='adventure';tab='character';save();adventure();window.scrollTo(0,0)}
 const monsterDexterity={'Wild Rat':10,'Goblin Scout':12,'Forest Wolf':16,'Bandit':14,'Stone Guardian':7,'Goblin Archer':16,'Ember Guardian':9};
 function monsterEscapeDex(e,zone){let base=monsterDexterity[e.base||e.name]??11;return base+Math.max(0,zone)*3+(e.kind==='boss'?7:e.kind==='rare'?4:0)}
 function fleeLimit(r){return 100}
