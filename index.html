@@ -2213,9 +2213,34 @@ function drawModernDeath(c,d,t){
  let duration=d.duration,elapsed=clamp(t,0,duration),p=elapsed/duration,a=modernEase((p-.11)/.39),hit=.53,after=clamp((p-hit)/.29,0,1),fall=modernEase(after),x=105+122*a,y=193,rot=0,walk=p<hit?p*35:0,hero=draft,scale=1.35,k=d.motion,prop=d.prop,ox=292,oy=194,pr=0;
  modernBackground(c,d,elapsed);
  if(k==='rocket'){
-  if(p<.37){ellipse(c,264,190,45,12,'#303b3d');modernRocket(c,264,218,false,elapsed);x=105+159*modernEase(p/.30);if(p>.27){y=193+45*modernEase((p-.27)/.10);rot=.8*modernEase((p-.27)/.10)}sprite(c,x,y,scale,draft,walk,0,rot)}
-  else if(p<.62){let q=modernEase((p-.37)/.25),ry=220-q*310;modernRocket(c,264,ry,true,elapsed);sprite(c,282,ry-5,1.18,draft,elapsed*8,1,.25);for(let i=0;i<14;i++)ellipse(c,264+(seed(i+20)-.5)*44,Math.min(240,ry+22+i*10),4+i*.7,5+i*.7,'#d5c7ae55')}
-  else{modernSpace(c,elapsed);let q=modernEase((p-.62)/.32);c.save();c.translate(120+q*165,110-q*13);c.rotate(q*2.1);modernRocket(c,-55,-9,false,elapsed);let tint=q>.25?'#719ecb':undefined;sprite(c,0,0,1.4,{...draft,skinTint:tint},(1-q)*elapsed*7,1-q,q*.35);c.restore()}
+  if(p<.62){
+   // A deep excavation with a dark opening, exposed earth and a foreground rim.
+   ellipse(c,264,193,53,17,'#4e514c');
+   poly(c,[[213,192],[228,181],[300,181],[316,193],[296,221],[232,221]],'#292d2e','#665443');
+   poly(c,[[214,193],[232,201],[240,225],[224,218]],'#78634e');
+   poly(c,[[315,193],[296,201],[288,225],[303,218]],'#8b7154');
+   ellipse(c,264,213,31,9,'#131b21');
+   for(let j=0;j<5;j++){let xx=215+j*23;line(c,[[xx,182],[xx+8,178]],'#b1a18a',2)}
+   if(p<.37){
+    x=105+132*modernEase(p/.27);
+    if(p>.27){let q=modernEase((p-.27)/.10);x=237+27*q;y=193+43*q;rot=.95*q;walk=0}
+    if(p>=.30){c.save();c.beginPath();c.rect(230,188,68,45);c.clip();modernRocket(c,264,245-14*modernEase((p-.30)/.07),false,elapsed);c.restore()}
+    c.save();if(p>.27){c.beginPath();c.rect(0,0,480,216);c.clip()}sprite(c,x,y,scale,draft,walk,0,rot);c.restore();
+    if(p>.27)poly(c,[[213,194],[229,209],[297,209],[315,194],[305,223],[224,223]],'#75634f');
+   }else{
+    let q=modernEase((p-.37)/.25),ry=231-q*321;
+    for(let i=0;i<16;i++){let sy=ry+23+i*10;if(sy<231)ellipse(c,264+(seed(i+20)-.5)*44,sy,4+i*.7,5+i*.7,'#d5c7ae55')}
+    modernRocket(c,264,ry,true,elapsed);sprite(c,282,ry-5,1.18,draft,elapsed*8,1,.25);
+   }
+  }else{
+   modernSpace(c,t);
+   let q=modernEase((p-.62)/.32),drift=Math.max(0,t-duration*.94),rx=65-145*clamp((p-.62)/.38,0,1)-drift*65,ry=99-70*clamp((p-.62)/.38,0,1)-drift*30;
+   // The rocket continues on its own trajectory while the hero remains in orbit.
+   if(rx>-90){c.save();c.translate(rx,ry);c.rotate(-.85);modernRocket(c,0,0,true,t);c.restore()}
+   c.save();c.translate(120+q*165+Math.sin(drift*.32)*30,110-q*13+Math.sin(drift*.47)*12);c.rotate(q*2.1+drift*.20);
+   let tint=q>.25?'#719ecb':undefined;
+   sprite(c,0,0,1.4,{...draft,skinTint:tint},(1-q)*elapsed*7,1-q,q*.35);c.restore()
+  }
   return
  }
  switch(k){
@@ -2241,7 +2266,7 @@ function drawModernDeath(c,d,t){
 }
 function drawDeath(c,t){
  let duration=introDeathDuration(),elapsed=Math.max(0,t);
- if(death.setting){let visualTime=reduced.matches?death.duration*.94:Math.min(death.duration,elapsed);drawModernDeath(c,death,visualTime)}
+ if(death.setting){let visualTime=reduced.matches?death.duration*.94:death.motion==='rocket'?elapsed:Math.min(death.duration,elapsed);drawModernDeath(c,death,visualTime)}
  else drawLegacyDeath(c,reduced.matches?5.4:Math.min(6,elapsed*6/duration));
  let cap=$('deathCaption'),button=$('deathContinue'),msg=elapsed>=duration*.78?death.cause:elapsed>=duration*.34?'Something is not quite right…':'Just another ordinary day.';
  if(cap&&cap.textContent!==msg)cap.textContent=msg;
