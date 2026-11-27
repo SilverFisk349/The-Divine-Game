@@ -371,6 +371,7 @@ function destinySkillClass(id){return Object.entries(destinyClasses).find(([,c])
 function destinySkillLabel(id){let c=destinyClasses[destinySkillClass(id)];return c?c.name+' Skill':''}
 function destinySkillTag(id){let label=destinySkillLabel(id);return label?'<small class="destiny-skill-origin">'+esc(label)+'</small>':''}
 function shortSkillChoice(id){let d=skillDefs[id];if(!d)return '';let requirements=skillEquipmentRules(id).map(rule=>rule.label||skillRequirementName(rule)).join(', ');return [d.summary,requirements,d.type==='passive'?null:d.description].filter(Boolean).join(' · ')}
+function destinySkillOfferAllowed(p,o){if(!o.skillId&&o.kind!=='skill'&&o.kind!=='passive')return true;let id=destinyInit(p).activeClass;return !!id&&o.classId===id&&!!skillDefs[o.skillId]&&destinyClasses[id].skills.includes(o.skillId)&&!p.learnedSkills.includes(o.skillId)}
 function destinyOfferPool(p,nextLevel){
  let d=destinyInit(p),out=[],add=(id,kind,name,icon,desc,weight,tone,extra={})=>{if(weight>0)out.push({id,kind,name,icon,desc,weight,tone,...extra})};
  let w=k=>destinyStyleWeight(p,k)+previousClassStyleBonus(p,k),former=new Set(previousDestinyClasses(p));
@@ -385,9 +386,9 @@ function destinyOfferPool(p,nextLevel){
  for(const [id,c] of Object.entries(destinyClasses)){
   let aff=w(c.style),current=id===d.activeClass;
   if(destinyClassAllowed(p,id,nextLevel))add('class-'+id,'class',c.name,c.icon,destinyModText(c.mods),Math.max(former.has(id)?3:0,aff)*(d.activeClass ? .32 : 1.25)*(former.has(id)?1.35:1),'gold',{classId:id});
-  if(current||former.has(id))for(const skill of c.skills)if(!p.learnedSkills.includes(skill)){
+  if(current)for(const skill of c.skills)if(!p.learnedSkills.includes(skill)){
    let def=skillDefs[skill],passive=def.type==='passive';
-   add('skill-'+skill,passive?'passive':'skill',def.name,def.icon,shortSkillChoice(skill),current?16+aff*1.4:3+aff*.3,'violet',{skillId:skill,classId:id});
+   add('skill-'+skill,passive?'passive':'skill',def.name,def.icon,shortSkillChoice(skill),16+aff*1.4,'violet',{skillId:skill,classId:id});
   }
  }
  return out;
@@ -395,13 +396,13 @@ function destinyOfferPool(p,nextLevel){
 function destinyChoose(pool,random=Math.random){let n=random()*pool.reduce((sum,x)=>sum+x.weight,0);for(const x of pool){n-=x.weight;if(n<=0)return x}return pool[pool.length-1]}
 function destinyPrepare(p,random=Math.random){
  let d=destinyInit(p);if(p.xp<xpGoal(p))return null;
- if(d.pending?.rules===3&&new Set(d.pending.offers.map(o=>o.id)).size===3&&d.pending.offers.every(o=>!o.skillId||!p.learnedSkills.includes(o.skillId))){for(let o of d.pending.offers)if(o.skillId&&skillDefs[o.skillId])o.desc=shortSkillChoice(o.skillId);return d.pending;}
+ if(d.pending?.rules===3&&new Set(d.pending.offers.map(o=>o.id)).size===3&&d.pending.offers.every(o=>destinySkillOfferAllowed(p,o))){for(let o of d.pending.offers)if(o.skillId&&skillDefs[o.skillId])o.desc=shortSkillChoice(o.skillId);return d.pending;}
  let next=p.level+1,pool=destinyOfferPool(p,next),offers=[],take=(list)=>{if(!list.length)return;let o=destinyChoose(list,random);offers.push(o);pool=pool.filter(x=>x.id!==o.id)};
  // Migrate already revealed offers without rerolling valid rewards.
  if(d.pending){for(const old of d.pending.offers){
    let fresh=pool.find(o=>o.id===old.id);
    if(old.kind==='class'&&destinyClasses[old.classId]&&old.classId!==d.activeClass)fresh={...old,desc:destinyModText(destinyClasses[old.classId].mods),tone:'gold'};
-   if(fresh&&!offers.some(o=>o.id===fresh.id)&&(!fresh.skillId||!p.learnedSkills.includes(fresh.skillId))){delete fresh.rank;offers.push(fresh);pool=pool.filter(x=>x.id!==fresh.id)}
+   if(fresh&&!offers.some(o=>o.id===fresh.id)&&destinySkillOfferAllowed(p,fresh)){delete fresh.rank;offers.push(fresh);pool=pool.filter(x=>x.id!==fresh.id)}
  }}
  // All three choices are random; an active class greatly increases its own skill weights.
  if(!d.pending&&!d.activeClass){let path=pool.filter(o=>o.kind==='class');if(path.length)take(path)}
@@ -413,7 +414,7 @@ function destinyDeliver(p){let d=destinyInit(p);if(p.run||p.pendingResult)return
 function destinyApply(p,o){
  let d=destinyInit(p);
  if(o.kind==='class'){if(!Object.hasOwn(destinyClasses,o.classId)||d.activeClass===o.classId)return;d.activeClass=o.classId;if(!d.classHistory.includes(o.classId)){d.classHistory.push(o.classId);if(!p.achievements?.['destiny:class:'+o.classId+':1'])unlockAchievement(p,'destiny:class:'+o.classId,[destinyClasses[o.classId].name+' discovered',20,'Journey','Level','Discover this class.'])}}
- else if(o.kind==='skill'||o.kind==='passive'){if(!p.learnedSkills.includes(o.skillId))p.learnedSkills.push(o.skillId);unlockAchievement(p,'destiny:skill:'+o.skillId,['Learned '+o.name,15,'Journey','Magic','Discover a new skill.'])}
+ else if(o.kind==='skill'||o.kind==='passive'){if(!destinySkillOfferAllowed(p,o))return;if(!p.learnedSkills.includes(o.skillId))p.learnedSkills.push(o.skillId);unlockAchievement(p,'destiny:skill:'+o.skillId,['Learned '+o.name,15,'Journey','Magic','Discover a new skill.'])}
  else if(o.kind==='gift'){d.gifts[o.giftId]={name:o.name,mods:o.mods};unlockAchievement(p,'destiny:gift:'+o.giftId,[o.name,45,'Journey','Magic','Receive a divine gift.'])}
  else if(o.kind==='equipment'){let i=treasure('rare');for(let n=0;n<40&&!i.slot;n++)i=treasure('rare');if(!i.slot)i=item('Veiled Blade','Main hand','rare',80,{ATK:5,STR:1});if(!i.magical){i.magical={key:'LCK',amount:1};i.mods={...i.mods,LCK:(i.mods?.LCK||0)+1};}d.reserve.push(classifyGear(i));destinyDeliver(p)}
  else if(o.kind==='resource')p[o.id]+=o.count;
@@ -538,7 +539,7 @@ function openDestiny(){
 }
 function claimDestiny(index){
  if(screen!=='camp'||!state||state.run||state.pendingResult||!levelReady())return false;
- let d=destinyInit(state),o=d.pending?.offers[index];if(!Number.isInteger(index)||!o)return false;if(o.skillId&&state.learnedSkills.includes(o.skillId)){openDestiny();return false}
+ let d=destinyInit(state),o=d.pending?.offers[index];if(!Number.isInteger(index)||!o)return false;if(!destinySkillOfferAllowed(state,o)){openDestiny();return false}
  let dialog=$('destinyDialog');if(!dialog?.open||dialog.dataset.claiming)return false;dialog.dataset.claiming='1';
  dialog.querySelectorAll('button').forEach(b=>b.disabled=true);dialog.querySelector('[data-act="destinyChoose:'+index+'"]')?.classList.add('chosen');
  creditClassLevel(state);state.xp=0;state.level++;state.points+=3;destinyApply(state,o);d.pending=null;d.recent={};state.hp=Math.min(maxHP(),state.hp+20);state.mp=Math.min(maxMP(),state.mp+12);tab='character';save();
