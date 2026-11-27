@@ -758,7 +758,7 @@ function millColdStart(scene,m,pair,h,door,t){
  if(!millColdRoute(scene,[caller],target,'millMeet')){if(!millColdRoute(scene,pair,door,'millMeet')){for(let v of pair){v.coldPartner=0;millRelease(v,t)}m.stage='rest';m.until=t+3;return false}}
  partner.action=partner.action==='walk'?'walk':'millMeet';return true
 }
-function millColdEnd(m,pair,t){for(let v of pair){v.coldPartner=0;millRelease(v,t)}m.worker=null;m.stage='rest';m.until=t+townRand(8,24)}
+function millColdEnd(m,pair,t){for(let v of pair){v.coldPartner=0;if(townIsOut(v)&&v.alpha>0){townIdle(v,t);v.outsideUntil=t+townRand(10,30)}else millRelease(v,t)}m.worker=null;m.stage='rest';m.until=t+townRand(8,24)}
 function millColdTick(scene,m,pair,h,door,t,dt){
  let p=scene.owner;
  if(m.stage==='coldMeet'){
@@ -795,7 +795,7 @@ function millTick(scene,t,dt){
  let v=pair.find(v=>v.id===m.worker),other=pair.find(w=>w!==v);
  if(m.stage.startsWith('cold')){millColdTick(scene,m,pair,h,door,t,dt);return}
  if(m.stage==='rest'){
-  if((h.coldTimber||p.wood<=0&&pair.some(w=>millColdSignal(w,t)))&&pair.every(millColdAvailable)){m.met=false;millColdStart(scene,m,pair,h,door,t);return}
+  if(p.wood<=0&&pair.some(w=>millColdSignal(w,t)))m.coldRequested=true;if(p.wood>0&&!h.coldTimber)m.coldRequested=false;if(h.coldTimber||m.coldRequested){if(pair.every(millColdAvailable)){m.met=false;m.coldRequested=false;millColdStart(scene,m,pair,h,door,t)}return}
   if(t<m.until)return;
   let choices=pair.filter(w=>!w.group&&!w.shopTrip&&!w.woodTrip&&!w.carry&&!w.reaction&&!w.retiring&&(!townIsOut(w)&&w.doorId===h.id||townIsOut(w)&&['idle','sit','chat','sweep','wave','stretch','shiver','coldFire'].includes(w.action)));
   if(!choices.length){m.until=t+townRand(1,3);return}
