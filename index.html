@@ -721,7 +721,7 @@ function townGameAchievement(p,id,count){
 function townStartGame(scene,t,pool,kind){
  let d=townGames[kind],nav=scene.nav;
  let members=pool.slice().sort(()=>Math.random()-.5).slice(0,d.n);
- let centers=nav.points.filter((q,i)=>nav.free[i]&&q.x>42&&q.x<438&&q.y>198&&q.y<296&&[-35,0,35].every(dx=>[-12,0,12].every(dy=>townFree({x:q.x+dx,y:q.y+dy},nav.boxes)))&&[-12,0,12].every(dy=>townSegment({x:q.x-35,y:q.y+dy},{x:q.x+35,y:q.y+dy},nav.boxes)));
+ let span=kind==='tug'?35:['rope','catchBall','ringToss','sackRace'].includes(kind)?28:kind==='balance'?22:18;let centers=nav.points.filter((q,i)=>nav.free[i]&&q.x>span+6&&q.x<474-span&&q.y>198&&q.y<296&&[-span,0,span].every(dx=>[-12,0,12].every(dy=>townFree({x:q.x+dx,y:q.y+dy},nav.boxes)))&&[-12,0,12].every(dy=>townSegment({x:q.x-span,y:q.y+dy},{x:q.x+span,y:q.y+dy},nav.boxes)));
  centers.sort(()=>Math.random()-.5);
  for(let q of centers.slice(0,24)){
   let targets=d.offsets.map(([dx,dy])=>townPoint(nav,{x:q.x+dx,y:q.y+dy}));
@@ -768,7 +768,7 @@ function townDrawGame(c,scene,t,front=false){
  let d=townGames[a.kind],q=townGamePhase(a,t),jump=Math.sin(q*Math.PI),{x,y}=a.center;
  let actors=members.map(v=>townGameActor(scene,v,t));
  if(!front){
-  if(a.kind==='rope'){let [l,j,r]=actors,arc=Math.cos(q*Math.PI*2);if(arc<0){c.save();c.strokeStyle='#d9b77b';c.lineWidth=1.8;c.beginPath();c.moveTo(l.x+8,l.y-15);c.quadraticCurveTo(j.x,y-15+arc*39,r.x-8,r.y-15);c.stroke();c.restore()}}
+  if(a.kind==='rope'){let [l,j,r]=actors,arc=-Math.cos(q*Math.PI*2);if(arc<0){c.save();c.strokeStyle='#d9b77b';c.lineWidth=1.8;c.beginPath();c.moveTo(l.x+8,l.y-15);c.quadraticCurveTo(j.x,y-15+arc*66,r.x-8,r.y-15);c.stroke();c.restore()}}
   if(a.kind==='stoneStack'){let n=Math.min(a.count,10);for(let k=0;k<n;k++)ellipse(c,x+5,y-k*3,Math.max(2,7-k*.45),2.7,k%2?'#8e9691':'#a7afa1')}
   if(a.kind==='armWrestle'){rect(c,x-9,y-11,18,5,'#a37b50');rect(c,x-7,y-6,3,8,'#624b35');rect(c,x+5,y-6,3,8,'#624b35')}
   if(a.kind==='ringToss'){ellipse(c,x+20,y+2,8,3,'#39463c');line(c,[[x+20,y+1],[x+20,y-15]],'#bb9761',3)}
@@ -776,7 +776,7 @@ function townDrawGame(c,scene,t,front=false){
   if(a.kind==='sackRace'){line(c,[[x+23,y-17],[x+23,y+17]],'#e9d8ad',1);for(let k=0;k<5;k++)rect(c,x+21,y-16+k*7,4,4,k%2?'#c6a876':'#eee1bd')}
   return
  }
- if(a.kind==='rope'){let [l,j,r]=actors,arc=Math.cos(q*Math.PI*2);if(arc>=0){c.save();c.strokeStyle='#d9b77b';c.lineWidth=1.8;c.beginPath();c.moveTo(l.x+8,l.y-15);c.quadraticCurveTo(j.x,y-15+arc*27,r.x-8,r.y-15);c.stroke();c.restore()}line(c,[[l.x+4,l.y-15],[l.x+9,l.y-15]],'#b3905f',3);line(c,[[r.x-9,r.y-15],[r.x-4,r.y-15]],'#b3905f',3)}
+ if(a.kind==='rope'){let [l,j,r]=actors,arc=-Math.cos(q*Math.PI*2);if(arc>=0){c.save();c.strokeStyle='#d9b77b';c.lineWidth=1.8;c.beginPath();c.moveTo(l.x+8,l.y-15);c.quadraticCurveTo(j.x,y-15+arc*34,r.x-8,r.y-15);c.stroke();c.restore()}line(c,[[l.x+4,l.y-15],[l.x+9,l.y-15]],'#b3905f',3);line(c,[[r.x-9,r.y-15],[r.x-4,r.y-15]],'#b3905f',3)}
  if(a.kind==='catchBall'){let [l,r]=actors;if(a.count%2)[l,r]=[r,l];ellipse(c,l.x+(r.x-l.x)*q,l.y-20-jump*19,3.8,3.8,'#bf7754')}
  if(a.kind==='juggle'){for(let i=0;i<3;i++){let k=(q+i/3)%1;ellipse(c,x+Math.sin(k*Math.PI*2)*11,y-19-Math.sin(k*Math.PI)*28,3.3,3.3,['#e1b05e','#78a8a5','#b76964'][i])}}
  if(a.kind==='stoneStack'&&a.stage==='game')ellipse(c,x-6+q*11,y-15-jump*8,4,2.6,'#aeb5aa');
