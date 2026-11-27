@@ -1386,6 +1386,7 @@ function spawnEnemy(r,z,kind,forced){
  r.enemy=makeEnemy(f,z,Math.min(r.step,routeLength(r)-1),kind,r.zone);
  let size=encounterGroupSize(r,kind);r.groupEncounter=size>1;r.rearEnemies=[];
  for(let j=1;j<size;j++){let companion=groupCompanion(r,r.enemy),e=makeEnemy(companion,z,Math.min(r.step,routeLength(r)-1),'normal',r.zone);e.rearCooldown=1.4+j*.35;r.rearEnemies.push(e)}
+ if(combatEnemies(r).some(fireMonster))r.fireScars=true;
  for(let e of combatEnemies(r))applyEncounterEscapePressure(r);for(let e of visibleCombatEnemies(r))recordMonsterSeen(state,e,r.zone)
  r.encounterIntro=1.2;r.cd.enemy=1.4;
  if(!r.event)discoverRoute(r,kind==='boss'?'boss':kind==='rare'?'rare':'monster');
@@ -1435,7 +1436,7 @@ function gameOver(cause=null){
  const animate=screen==='adventure'&&!!r;
  state=null;save();
  if(!animate){showGameOver(dead);return}
- playerDeathVisual={hero,dead,enemy:r.enemy?{...r.enemy}:null,rearEnemies:visibleCombatEnemies(r).filter(e=>e!==r.enemy).map(e=>({...e})),groupEncounter:r.groupEncounter,event:r.event?{...r.event}:null,theme:zones[r.zone].theme,distance:travelDistance,enemyX:enemyScreenX,start:performance.now(),reduced:reduced.matches,particles:Array.from({length:46},(_,i)=>({vx:-(24+seed(i+703)*153)*(i%5===0?-.55:1),vy:-35-seed(i+811)*125,size:.8+seed(i+912)*2.7,delay:seed(i+1010)*.13,color:['#842a32','#b43a42','#d05759','#5f222a'][i%4]}))};
+ playerDeathVisual={hero,dead,enemy:r.enemy?{...r.enemy}:null,rearEnemies:visibleCombatEnemies(r).filter(e=>e!==r.enemy).map(e=>({...e})),groupEncounter:r.groupEncounter,event:r.event?{...r.event}:null,theme:zones[r.zone].theme,fireScars:routeHasFireMonsters(r),distance:travelDistance,enemyX:enemyScreenX,start:performance.now(),reduced:reduced.matches,particles:Array.from({length:46},(_,i)=>({vx:-(24+seed(i+703)*153)*(i%5===0?-.55:1),vy:-35-seed(i+811)*125,size:.8+seed(i+912)*2.7,delay:seed(i+1010)*.13,color:['#842a32','#b43a42','#d05759','#5f222a'][i%4]}))};
  screen='dying';
  app.innerHTML='<div class="expedition-layout"><section class="panel stack"><div class="expedition-title"><span class="eyebrow dangertext">Expedition</span><h2>'+esc(zones[r.zone].name)+'</h2></div><div class="expedition-picture"><canvas id="scene" class="scene expedition-scene" width="960" height="480" aria-label="Your character falls in battle"></canvas></div><div class="row spread"><b class="dangertext">Health</b><b class="dangertext">0 HP</b></div><div class="bar hp"><i style="width:0%"></i></div><p class="center dangertext" role="status">A fatal blow.</p></section></div>';
  window.scrollTo(0,0);
@@ -2389,12 +2390,30 @@ function drawActiveBuffAuras(c,r,x,y,t){for(const e of r.effects||[]){let spec=s
 const lesserProjectileImages=new Map();
 function drawLesserProjectile(c,id,x,y){let d=lesserItemDefs.find(d=>d.id===id);if(!d?.art)return false;let img=lesserProjectileImages.get(id);if(!img){img=new Image();img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48">'+d.art+'</svg>');lesserProjectileImages.set(id,img)}if(!img.complete||!img.naturalWidth)return false;c.drawImage(img,x-11,y-11,22,22);return true}
 function drawCombatNumber(c,e,a){let isDamage=['slash','arcane','enemy','trap','lesserAttack'].includes(e.type),positive=['heal','mana','xp'].includes(e.type),label=e.type==='lesserDebuff'?'DEBUFF':e.type==='effect'?'BUFF':e.type==='item'?'ITEM':e.type==='xp'?'+'+e.amount+' XP':e.type==='heal'?'+'+e.amount+' HP':e.type==='mana'?'+'+e.amount+' MP':isDamage?(e.side==='hero'?'−':'')+e.amount:String(e.amount||'');if(!label||(!e.amount&&(isDamage||positive)))return;let color=e.color|| (e.type==='enemy'||e.type==='trap'?'#ff9b93':e.type==='heal'?'#a9f3a8':e.type==='mana'?'#91cbff':e.type==='arcane'?'#c3b6ff':e.type==='effect'||e.type==='item'?'#b4eac3':e.critical||e.type==='xp'?'#ffe49a':'#fff5df'),lane=e.lane||0,x=clamp((e.side==='hero'?113:e.targetX??(state?.run?.enemy?enemyFormationX(state.run,0):345))+[0,38,-38,0][lane],32,448),y=111-(lane===3?31:lane?13:0)-Math.min(1,a/1.35)*36,alpha=a<.85?1:clamp(1-(a-.85)/.5,0,1);c.save();c.globalAlpha=alpha;c.font='900 '+(e.critical?27:isDamage?24:19)+'px system-ui';c.textAlign='center';c.textBaseline='middle';c.lineJoin='round';c.strokeStyle='#0b151b';c.lineWidth=5;c.shadowColor='#000';c.shadowBlur=4;c.strokeText(label,x,y);c.shadowBlur=0;c.fillStyle=color;c.fillText(label,x,y);if(e.critical){c.font='800 12px system-ui';c.lineWidth=3;c.strokeText('CRITICAL',x,y-21);c.fillText('CRITICAL',x,y-21)}else if(e.name){c.font='800 11px system-ui';c.lineWidth=3;c.strokeText(e.name,x,y-18);c.fillText(e.name,x,y-18)}c.restore()}
-function expeditionLandscape(c,t,zone,distance){
+
+function fireMonster(e){return !!e&&[e.spell,e.element,e.attribute,monsterTraits[e.base||e.name]?.spell].some(v=>String(v||'').toLowerCase()==='fire')}
+function routeHasFireMonsters(r){
+ if(r.fireScars||combatEnemies(r).some(fireMonster))return true;
+ return (r.encounterPlan||[]).some(entry=>{let [kind,name]=String(entry).split(':');return kind==='boss'?fireMonster(bossVariants[r.zone]):name?fireMonster({name}):false});
+}
+function burnedTree(c,x,y,s,t,n){
+ c.save();c.translate(x,y);c.scale(s,s);
+ let lean=(seed(n+842)-.5)*10,h=38+seed(n+819)*25;
+ ellipse(c,0,1,18,4,'#262b2a85');ellipse(c,-7,-1,7,1.6,'#746e65');
+ poly(c,[[-6,1],[-3,-h*.42],[lean-2,-h],[lean+1,-h-5],[lean+4,-h*.65],[3,1]],'#292e2d','#202828');
+ line(c,[[-1,-2],[0,-h*.42],[lean,-h*.82]],'#60564b',1.4);
+ for(let j=0;j<5;j++){let side=j%2?-1:1,yy=-h*(.27+j*.135),xx=lean*(-yy/h),len=10+seed(n+j+50)*11;line(c,[[xx,yy],[xx+side*len*.6,yy-7],[xx+side*len,yy-16]],'#34332e',3.4-j*.35);line(c,[[xx+side*len*.6,yy-7],[xx+side*len*.5,yy-15]],'#494139',1.3)}
+ for(let j=0;j<4;j++){let yy=-h*(.12+j*.16);line(c,[[0,yy],[-2,yy-4]],'#a08b6b88',.7)}
+ if(seed(n+802)<.27){glow(c,2,-6,9,'#da6f3038');ellipse(c,1,-5,1.2,.9,'#ce8053');for(let j=0;j<4;j++){let a=(t*.18+j*.25+seed(n))%1;ellipse(c,2+Math.sin(a*5+j)*a*8,-7-a*27,2+a*4,1.5+a*2,'rgba(100,105,100,'+(.15*(1-a))+')')}}
+ c.restore()
+}
+
+function expeditionLandscape(c,t,zone,distance,fireScars=false){
  const cave=zone==='cave',ruins=zone==='ruins',wrap=(x,w)=>((x%w)+w)%w;
  rect(c,0,0,480,240,grad(c,0,0,0,240,cave?'#101625':ruins?'#202334':'#172e3e',cave?'#374c61':ruins?'#726879':'#627d82'));
  if(!cave){for(let i=0;i<42;i++){let x=wrap(seed(i+300)*480-distance*.012,480),y=8+seed(i+400)*96;ellipse(c,x,y,.45+seed(i+600)*.7,.6,'#d0dce8aa')}let mx=375-distance*.008%30;glow(c,mx,43,52,ruins?'#c4a1df33':'#9ce1d933');ellipse(c,mx,43,20,20,ruins?'#e0bfdc':'#c4d8dc');ellipse(c,mx+8,36,18,18,'#334250');for(let k=0;k<3;k++){let points=[[-20,175]];for(let x=-20;x<=510;x+=12){let q=x+distance*(.045+k*.06),y=102+k*19+Math.sin(q*.018+k*4)*15+Math.sin(q*.045+k)*7;points.push([x,y])}points.push([510,175]);poly(c,points,['#4d616d','#3a525e','#253f47'][k])}}
  if(cave){for(let j=-1;j<10;j++){let n=Math.floor(distance*.35/65)+j,x=j*65-wrap(distance*.35,65),h=55+seed(n+9)*60;poly(c,[[x-30,0],[x+32,0],[x+3,h]],grad(c,0,0,0,h,'#263344','#536379'));poly(c,[[x-30,179],[x+30,179],[x,115+seed(n)*40]],'#293e4c');if(n%2===0){glow(c,x,159,36,'#65cef044');poly(c,[[x-10,174],[x-5,146],[x+1,140],[x+8,152],[x+6,174]],'#78becd','#b3f5f1')}}}
- else{for(let j=-2;j<12;j++){let n=Math.floor(distance*.52/58)+j,x=j*58-wrap(distance*.52,58);if(ruins){let h=46+seed(n+50)*70;poly(c,[[x-12,175],[x-12,175-h],[x+5,169-h],[x+13,175]],grad(c,x-12,0,x+13,0,'#8d8b91','#3e4b58'));line(c,[[x-15,179-h],[x+14,179-h]],'#a5a3ad',4);if(n%3===0){glow(c,x,154,20,'#ac8eea44');line(c,[[x,140],[x-5,149],[x+3,156]],'#bb98e8',1.5)}}else{tree(c,x,177,1+seed(n+15)*.85,t,n%2?'#31574f':'#284944');if(n%3===0){glow(c,x+12,168,12,'#8dbfa54c');ellipse(c,x+12,168,3,2,'#a4e4bd')}}}}
+ else{for(let j=-2;j<12;j++){let n=Math.floor(distance*.52/58)+j,x=j*58-wrap(distance*.52,58);if(ruins){let h=46+seed(n+50)*70;poly(c,[[x-12,175],[x-12,175-h],[x+5,169-h],[x+13,175]],grad(c,x-12,0,x+13,0,'#8d8b91','#3e4b58'));line(c,[[x-15,179-h],[x+14,179-h]],'#a5a3ad',4);if(n%3===0){glow(c,x,154,20,'#ac8eea44');line(c,[[x,140],[x-5,149],[x+3,156]],'#bb98e8',1.5)}if(fireScars&&seed(n+927)<.34)burnedTree(c,x+25,176,.8+seed(n+15)*.45,t,n)}else{let burnt=fireScars&&seed(n+927)<.34;if(burnt)burnedTree(c,x,177,1+seed(n+15)*.85,t,n);else tree(c,x,177,1+seed(n+15)*.85,t,n%2?'#31574f':'#284944');if(!burnt&&n%3===0){glow(c,x+12,168,12,'#8dbfa54c');ellipse(c,x+12,168,3,2,'#a4e4bd')}}}}
  rect(c,0,177,480,63,grad(c,0,177,0,240,cave?'#45505c':ruins?'#676164':'#646b59','#202d34'));
  let edge=[];for(let x=0;x<=480;x+=8){let q=x+distance*.85;edge.push([x,178+Math.sin(q*.027)*3+Math.sin(q*.069)*1.8])}line(c,edge,cave?'#92b2bf55':'#d1c6a05c',1.8);
  for(let j=-2;j<19;j++){let n=Math.floor(distance/32)+j,x=j*32-wrap(distance,32),y=190+seed(n+100)*43;ellipse(c,x,y,2+seed(n+9)*7,1.3+seed(n+11),n%2?'#a0a69a55':'#152b35aa');if(n%3===0){if(cave){poly(c,[[x-5,y],[x,y-5],[x+4,y-2],[x+3,y]],'#71818d')}else{line(c,[[x,y],[x-4,y-8],[x,y-4],[x+5,y-10]],ruins?'#9d9381':'#7caa8b',1.1)}}}
@@ -2426,7 +2445,7 @@ function drawExpeditionEvent(c,e,t){let x=330,y=177;
  if(e.type==='shrine'){poly(c,[[x-25,y],[x-20,y-12],[x+20,y-12],[x+25,y]],'#56686d');poly(c,[[x-12,y-12],[x-9,y-67],[x,y-78],[x+10,y-67],[x+12,y-12]],'#71828b','#b9c7ca');glow(c,x,y-43,34,'#91c9fb88');line(c,[[x-5,y-54],[x+5,y-43],[x-5,y-32]],'#a7dcff',3)}
 }
 function expeditionDraw(c,t,dt,now){
- let r=state.run,enemy=r.enemy,fallen=!enemy&&defeatedVisual&&r.aftermath,walking=!enemy&&!r.aftermath&&!r.paused&&!r.event;let visualDt=r.paused||reduced.matches?0:dt;if(walking){travelDistance+=visualDt*58;walkClock+=visualDt*8}if(enemy!==seenEnemy){seenEnemy=enemy;enemyApproach=enemy?0:1}if(enemy)enemyApproach=Math.min(1,enemyApproach+visualDt*5);expeditionLandscape(c,t,zones[r.zone].theme,travelDistance);
+ let r=state.run,enemy=r.enemy,fallen=!enemy&&defeatedVisual&&r.aftermath,walking=!enemy&&!r.aftermath&&!r.paused&&!r.event;let visualDt=r.paused||reduced.matches?0:dt;if(walking){travelDistance+=visualDt*58;walkClock+=visualDt*8}if(enemy!==seenEnemy){seenEnemy=enemy;enemyApproach=enemy?0:1}if(enemy)enemyApproach=Math.min(1,enemyApproach+visualDt*5);expeditionLandscape(c,t,zones[r.zone].theme,travelDistance,routeHasFireMonsters(r));
  combatEffects=combatEffects.filter(e=>now-e.at<1350);let age=e=>(now-e.at)/1000,slash=combatEffects.findLast(e=>e.type==='slash'&&age(e)<.48&&!['arrow','coin','confetti','banner'].includes(skillVfx[e.skillId]?.[0])),enemyHit=combatEffects.findLast(e=>e.type==='enemy'&&age(e)<.45),spell=combatEffects.findLast(e=>e.type==='arcane'&&age(e)<.65),p=slash?Math.sin(Math.min(1,age(slash)/.48)*Math.PI):0,ep=enemyHit?Math.sin(Math.min(1,age(enemyHit)/.45)*Math.PI):0,cast=spell?Math.sin(Math.min(1,age(spell)/.65)*Math.PI):0,px=r.event?.type==='cage'&&!enemy&&!r.aftermath?113+Math.min(1,r.event.stage==='open'?1:r.event.elapsed/2.4)*230:113+(reduced.matches?0:p*70),ex=enemyFormationX(r,0)+(reduced.matches?0:(1-enemyApproach)*(r.groupEncounter?35:110)-(enemyHit&&!enemyHit.ranged?ep*25:0));heroScreenX=px;if(enemy){ex=enemyDisplayX(r,enemy,0)+(ex-enemyFormationX(r,0));enemyScreenX=ex;}
  let cageWalking=r.event?.type==='cage'&&r.event.stage==='approach'&&!enemy&&!r.aftermath&&!r.paused;updateBloodySteps('hero',travelDistance+px,177,!!(walking||cageWalking)&&!reduced.matches);drawGroundBlood(c,travelDistance);
  if(r.event)drawExpeditionEvent(c,r.event,t);drawPassiveAuras(c,state,px,177,r.paused?0:t);drawActiveBuffAuras(c,r,px,177,r.paused?0:t);if(cast>0&&!spell?.skillId)glow(c,px+20,129,28*cast,'#9db9ff77');sprite(c,px,177,1.55,state,walking?walkClock:cageWalking?t*9:0,reduced.matches?0:Math.max(p,cast*.5));
@@ -2444,7 +2463,7 @@ function drawPlayerDeath(c,t,now){
  const elapsed=Math.max(0,(now-d.start)/1000),a=d.reduced?2.2:Math.min(3.5,elapsed),impact=.22,age=Math.max(0,a-impact),fall=clamp(age/.68,0,1),ease=1-Math.pow(1-fall,3),x=113-12*ease;
  c.save();
  if(!d.reduced&&age>0&&age<.35){let shake=(1-age/.35)*5;c.translate(Math.sin(age*83)*shake,Math.cos(age*69)*shake*.55)}
- expeditionLandscape(c,t,d.theme,d.distance);drawGroundBlood(c,d.distance);
+ expeditionLandscape(c,t,d.theme,d.distance,d.fireScars);drawGroundBlood(c,d.distance);
  if(d.event)drawExpeditionEvent(c,d.event,t);
  if(age>0){
   let pool=clamp((age-.25)/1.1,0,1);
