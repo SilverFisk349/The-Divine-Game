@@ -1111,7 +1111,7 @@ function townUpdateActor(scene,v,t,dt){let nav=scene.nav;if(v.action==='paintExi
  if(v.group)return;
  if(v.builder){if(v.action!=='build'&&t>=v.until){if(!townGo(v,nav,v.home,'build',100))v.until=t+2}return}
  if(t<v.until)return;
- if(scene.owner.homeBuild&&!v.carry&&!['chop','herbs','berries','deliver','woodRetry'].includes(v.action))return;
+ if(scene.owner.homeBuild&&!v.builder&&!v.carry&&!['chop','herbs','berries','deliver','woodRetry'].includes(v.action))return;
  if(!scene.owner.homeBuild&&!v.builder&&!v.retiring&&!v.carry&&!['chop','herbs','berries','deliver'].includes(v.action)&&(t>=v.outsideUntil||scene.outdoor>scene.limit&&Math.random()<.4||Math.random()<.12)){if(townReturnInside(scene,v,t)){scene.outdoor=Math.max(0,scene.outdoor-1);return}}
  if(v.action==='chop'){v.carry='wood';if(!townWoodDestination(scene,v)){v.action='woodRetry';v.until=t+2}return}if(v.action==='woodRetry'){if(!townWoodDestination(scene,v))v.until=t+2;return}if(['herbs','berries'].includes(v.action)){v.carry=v.action;if(!townGo(v,nav,v.home,'deliver',1.5))townIdle(v,t);return}
  if(v.action==='deliver'){townIdle(v,t);return}
