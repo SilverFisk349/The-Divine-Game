@@ -215,7 +215,7 @@ function destinyApply(p,o){
  if(o.kind==='class'){d.classes[o.classId]=o.rank;d.lastRank[o.classId]=p.level;unlockAchievement(p,'destiny:class:'+o.classId+':'+o.rank,[destinyClasses[o.classId].name+' Rank '+o.rank,15+o.rank*5,'Journey','Level','Awaken or advance this class.'])}
  else if(o.kind==='skill'||o.kind==='passive'){if(!p.learnedSkills.includes(o.skillId))p.learnedSkills.push(o.skillId);unlockAchievement(p,'destiny:skill:'+o.skillId,['Learned '+o.name,15,'Journey','Magic','Discover a new skill.'])}
  else if(o.kind==='gift'){d.gifts[o.giftId]={name:o.name,mods:o.mods};unlockAchievement(p,'destiny:gift:'+o.giftId,[o.name,45,'Journey','Magic','Receive a divine gift.'])}
- else if(o.kind==='equipment'){let i=treasure('rare');for(let n=0;n<40&&!i.slot;n++)i=treasure('rare');if(!i.slot)i=item('Veiled Blade','Main hand','rare',80,{ATK:5,STR:1});if(!i.magical){i.magical=true;i.mods={...i.mods,LCK:(i.mods?.LCK||0)+1};}d.reserve.push(i);destinyDeliver(p)}
+ else if(o.kind==='equipment'){let i=treasure('rare');for(let n=0;n<40&&!i.slot;n++)i=treasure('rare');if(!i.slot)i=item('Veiled Blade','Main hand','rare',80,{ATK:5,STR:1});if(!i.magical){i.magical={key:'LCK',amount:1};i.mods={...i.mods,LCK:(i.mods?.LCK||0)+1};}d.reserve.push(classifyGear(i));destinyDeliver(p)}
  else if(o.kind==='resource')p[o.id]+=o.count;
  else if(o.kind==='people'){for(let n=0;n<o.count;n++)addVillager(p)}
  else if(o.kind==='supplies'){let def=lesserPotionDefs.find(x=>x.category===(o.id==='mana'?'mana':'healing'));for(let n=0;n<o.count;n++)d.reserve.push(makeLesserLoot(def));destinyDeliver(p)}
