@@ -1278,9 +1278,22 @@ function monsterAttributeRanges(m,zone){let trait=monsterTraits[m.base||m.name]|
 function monsterDerived(m,zone,attrs){let z=zones[zone],f=foes.find(x=>x.name===(m.base||m.name))||m,kind=m.kind||'normal',scale=z.scale*(1+Math.max(0,z.length-1)*.045/2),trait=monsterTraits[f.name]||monsterTraits['Wild Rat'],mul=kind==='rare'?2:kind==='boss'?1.8:1,boost=kind==='boss'?4:kind==='rare'?2:0;
  let hp=spreadStat(f.hp*scale*monsterBalance.health*mul*(1+(attrs.CON-10)*.012)),atk=spreadStat(f.atk*scale*(kind==='rare'?2:kind==='boss'?1.15:1)*(1+(attrs.STR-10)*.02),.13),mana=trait.mana.map(v=>Math.round(v*z.scale*mul*(1+(attrs.WIS-10)*.02))),physical=trait.physical.map(v=>clamp(v+boost+Math.round((attrs.CON-10)*.3),0,75)),arcane=trait.arcane.map(v=>clamp(v+boost+Math.round((attrs.WIS-10)*.4),0,75)),magic=trait.spell?spreadStat(f.atk*scale*(kind==='rare'?2:kind==='boss'?1.15:1)*1.25*(1+(attrs.INT-10)*.035),.13):[0,0],armorClass=Math.max(5,Math.round(10+(attrs.CON-10)*.25+(attrs.DEX-10)*.2)),interval=Math.round(clamp(1.5-(attrs.AGI-10)*.025,1.15,1.85)*100)/100,crit=clamp(Math.round(3+(attrs.LCK-10)*.3+(attrs.DEX-10)*.25),1,14),elements=Object.fromEntries(resist.map((k,i)=>[k,[clamp(trait.elements[i]+boost-2,-75,75),clamp(trait.elements[i]+boost+2,-75,75)]]));return {hp,atk,mana,physical,arcane,magic,armorClass,interval,crit,elements,spell:trait.spell,xp:Math.round(Math.round(f.xp*z.scale)*(kind==='rare'?2:kind==='boss'?2.5:1))}}
 
-const monsterSizeOptions=[.80,.90,1,1.10,1.20];
-const bossSizeOptions=[.85,.925,1,1.075,1.15];
-function rollMonsterSize(kind,random=Math.random){let sizes=kind==='boss'?bossSizeOptions:monsterSizeOptions;return sizes[Math.min(sizes.length-1,Math.floor(random()*sizes.length))]}
+// Size is relative to the original species sprite. Extreme sizes are deliberately rare.
+const monsterSizeOptions=[.10,1.50];
+const monsterSizeBands=[
+ [.001,10,29],
+ [.004,30,49],
+ [.015,50,64],
+ [.05,65,79],
+ [.95,80,120],
+ [.985,121,135],
+ [.997,136,145],
+ [1,146,150]
+];
+function rollMonsterSize(kind,random=Math.random){
+ let roll=random(),band=monsterSizeBands.find(b=>roll<b[0])||monsterSizeBands[monsterSizeBands.length-1];
+ return (band[1]+Math.min(band[2]-band[1],Math.floor(random()*(band[2]-band[1]+1))))/100;
+}
 function monsterSizedAttributes(m,attrs,size){
  if(m.kind==='boss')return {...attrs};
  let d=size-1,out={...attrs};
